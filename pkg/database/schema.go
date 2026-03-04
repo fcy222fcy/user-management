@@ -1,0 +1,28 @@
+package database
+
+import (
+	"fmt"
+)
+
+// InitTable 初始化数据库表结构
+func InitTable() error {
+	// mysql中不支持-命名,如果需要,使用``包裹名称
+	createUserTable := `
+	CREATE TABLE IF NOT EXISTS users (
+		id BIGINT PRIMARY KEY AUTO_INCREMENT,
+		username VARCHAR(50) NOT NULL UNIQUE,
+		password VARCHAR(255) NOT NULL,
+		email VARCHAR(100) UNIQUE,
+		avatar_url VARCHAR(255) DEFAULT '',
+		role VARCHAR(20) DEFAULT 'user',
+		status TINYINT DEFAULT 1,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+	);`
+
+	_, err := DB.Exec(createUserTable)
+	if err != nil {
+		return fmt.Errorf("创建 users 表失败:%w", err)
+	}
+	return nil
+}
