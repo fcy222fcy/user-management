@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户注册</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">用户注册</h1>
+    <form id="registerForm">
+      <!-- 用户名输入 -->
+      <div class="mb-4">
+        <label for="username" class="block text-sm font-medium text-gray-700">用户名</label>
+        <input type="text" id="username" name="username" placeholder="请输入用户名"
+         class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+         required />
+      </div>
+
+      <!-- 密码输入 -->
+      <div class="mb-4">
+        <label for="password" class="block text-sm font-medium text-gray-700">密码</label>
+        <input type="password" id="password" name="password" placeholder="请输入密码"
+         class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+         required minlength="6" />
+      </div>
+
+      <!-- 确认密码输入 -->
+      <div class="mb-6">
+        <label for="confirmPassword" class="block text-sm font-medium text-gray-700">确认密码</label>
+        <input type="password" id="confirmPassword" name="confirmPassword" placeholder="请再次输入密码"
+         class="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+         required minlength="6" />
+      </div>
+
+      <!-- 注册按钮 -->
+      <button type="submit"
+       class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+        注册
+      </button>
+
+      <!-- 返回登录链接 -->
+      <div class="mt-4 text-center">
+        <a href="login.html" class="text-sm text-blue-600 hover:text-blue-500">已有账号？返回登录</a>
+      </div>
+    </form>
+
+    <!-- 提示信息 -->
+    <div id="messageBox" class="hidden mt-4 p-3 rounded-lg text-sm"></div>
+  </div>
+</body>
+
+<script>
+  // 获取表单元素
+  const registerForm = document.getElementById('registerForm');
+  const username = document.getElementById('username');
+  const password = document.getElementById('password');
+  const confirmPassword = document.getElementById('confirmPassword');
+  const messageBox = document.getElementById('messageBox');
+
+  // 显示提示信息
+  function showMessage(message, type) {
+    messageBox.textContent = message;
+    messageBox.className = 'mt-4 p-3 rounded-lg text-sm';
+
+    if (type === 'success') {
+      messageBox.classList.add('bg-green-100', 'text-green-800');
+    } else if (type === 'error') {
+      messageBox.classList.add('bg-red-100', 'text-red-800');
+    } else if (type === 'warning') {
+      messageBox.classList.add('bg-yellow-100', 'text-yellow-800');
+    }
+
+    messageBox.classList.remove('hidden');
+
+    // 3秒后自动隐藏
+    setTimeout(() => {
+      messageBox.classList.add('hidden');
+    }, 3000);
+  }
+
+  // 表单提交处理
+  registerForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    // 检查密码是否一致
+    if (password.value !== confirmPassword.value) {
+      showMessage('两次输入的密码不一致', 'error');
+      return;
+    }
+
+    // 检查密码长度
+    if (password.value.length < 6) {
+      showMessage('密码长度至少为6位', 'error');
+      return;
+    }
+
+    showMessage('正在注册...', 'warning');
+
+    try {
+      // 发送注册请求 (使用 FormData 与后端 FormValue 兼容)
+      const formData = new FormData();
+      formData.append('username', username.value.trim());
+      formData.append('password', password.value);
+
+      const response = await fetch('/api/register', {
+        method: 'POST',
+        body: formData
+      });
+
+      const resultText = await response.text();
+
+      if (response.ok) {
+        showMessage('注册成功！正在跳转...', 'success');
+        setTimeout(() => {
+          window.location.href = 'login.html';
+        }, 1500);
+      } else {
+        showMessage(resultText || '注册失败', 'error');
+      }
+    } catch (error) {
+      showMessage('注册失败，请稍后重试', 'error');
+      console.error('注册错误:', error);
+    }
+  });
+
+  // 添加实时密码验证
+  password.addEventListener('input', () => {
+    if (confirmPassword.value && password.value !== confirmPassword.value) {
+      confirmPassword.classList.add('border-red-500');
+    } else {
+      confirmPassword.classList.remove('border-red-500');
+    }
+  });
+
+  confirmPassword.addEventListener('input', () => {
+    if (password.value !== confirmPassword.value) {
+      confirmPassword.classList.add('border-red-500');
+    } else {
+      confirmPassword.classList.remove('border-red-500');
+    }
+  });
+</script>
+
+</html>
