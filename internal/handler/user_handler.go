@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"user-management/internal/service"
+	"user-management/pkg/response"
 )
 
 // router 路由注册
@@ -22,7 +23,9 @@ func RegisterUserRoutes(mux *http.ServeMux, svc *service.UserService) {
 	UserSvc = svc
 
 	// restful风格
+	log.Printf("[路由] 注册 /users Handler")
 	mux.HandleFunc("/users", LoginHandler)
+	log.Printf("[路由] 注册 /users/ Handler")
 	mux.HandleFunc("/users/", RegisterHandler)
 
 }
@@ -38,53 +41,52 @@ var resp struct {
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	// 只接受post请求
 	if r.Method != http.MethodPost {
-		//当服务器执行这行代码时，HTTP 响应头中的状态行会被设置为 405 Method Not Allowed
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{"code":405,"message":"只支持POST方法"`)
+		response.JsonResponse(w, http.StatusMethodNotAllowed, "只支持POST方法", nil)
 		return
 	}
 	// 解析表单
 	if err := r.ParseForm(); err != nil {
-		// 执行这行代码后，HTTP 响应的状态行变为 400 Bad Request,这通常意味着错误在于客户端(发送请求的一方,而不是服务器内部错误)
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintln(w, `{"code":400,"message":"表单解析失败"}`)
+		response.JsonResponse(w, http.StatusBadRequest, "表单解析失败", nil)
 		return
 	}
 	username := r.FormValue("username")
 	password := r.FormValue("password")
 	email := r.FormValue("email")
 
+	log.Printf("获取到表单数据: username=%s, email=%s", username, email)
+	log.Printf("开始注册，用户名: %s, 邮箱: %s", username, email)
 	// 调用 Service层注册
 	user, err := UserSvc.Register(username, password, email)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintln(w, "注册失败:", err)
+		log.Printf("注册失败: %v", err)
+		response.JsonResponse(w, http.StatusBadRequest, "注册失败"+err.Error(), nil)
 		return
 	}
+	log.Printf("注册成功!用户ID: %d, 用户名: %s", user.ID, user.Username)
 	// 返回成功响应
-	fmt.Fprintf(w, "注册成功!用户名 : %s,用户ID: %d\n", user.Username, user.ID)
+	response.JsonResponse(w, http.StatusOK, "注册成功", map[string]interface{}{
+		"user_id":  user.ID,
+		"username": user.Username,
+		"email":    user.Email,
+	})
 }
 
 // LoginHandler 主要功能是解析获取字段,然后传给service层
 func LoginHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method == http.MethodGet {
+	switch r.Method {
+	case http.MethodGet:
 		// 渲染登录页面
 		t, err := template.ParseFiles("web/templates/login.html")
 		if err != nil {
-			log.Fatal(err)
+			log.Printf("渲染登录页卖你失败:%v", err)
+			response.JsonResponse(w, http.StatusInternalServerError, "页面渲染失败", nil)
+			return
 		}
-		err = t.Execute(w, nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-	} else if r.Method == http.MethodPost {
-		// 处理登录表单提交
-		err := r.ParseForm()
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintln(w, "表单解析失败:", err)
+		t.Execute(w, nil)
+	case http.MethodPost:
+		// 解析表单
+		if err := r.ParseForm(); err != nil {
+			response.JsonResponse(w, http.StatusBadRequest, "表单解析失败", nil)
 			return
 		}
 
@@ -92,18 +94,20 @@ func LoginHandler(w http.ResponseWriter, r *http.Request) {
 		password := r.FormValue("password")
 
 		// 调用 Service 层登录
-		user, err := UserSvc.Login(username, password)
-		if err != nil {
+		user, errLogin := UserSvc.Login(username, password)
+		if errLogin != nil {
 			w.WriteHeader(http.StatusUnauthorized)
-			fmt.Fprintln(w, "登录失败:", err)
+			fmt.Fprintln(w, "登录失败:", errLogin)
 			return
 		}
 
-		// 登录成功
-		fmt.Fprintf(w, "登录成功！欢迎 %s (ID: %d)\n", user.Username, user.ID)
-	} else {
+		response.JsonResponse(w, http.StatusOK, "登录成功", map[string]interface{}{
+			"user_id":  user.ID,
+			"username": user.Username,
+			"email":    user.Email,
+		})
+	default:
 		// 不支持的请求方法
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		fmt.Fprintln(w, "只支持 GET 和 POST 方法")
+		response.JsonResponse(w, http.StatusMethodNotAllowed, "只支持 GET 和 POST 方法", nil)
 	}
 }
