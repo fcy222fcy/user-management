@@ -31,11 +31,11 @@ func RegisterUserRoutes(mux *http.ServeMux, svc *service.UserService) {
 }
 
 // req 是DTO(数据传输对象) 接收前端发过来的json数据
-var resp struct {
-	User     string `json:"user"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-}
+//var resp struct {
+//	User     string `json:"user"`
+//	Password string `json:"password"`
+//	Email    string `json:"email"`
+//}
 
 // RegisterHandler 处理用户注册
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
