@@ -7,6 +7,7 @@ import (
 // InitTable 初始化数据库表结构
 func InitTable() error {
 	// mysql中不支持-命名,如果需要,使用``包裹名称
+	// 头像可以设置一个默认头像,是写在数据库里面还是写在注册的时候--可以写一个显示名称,就跟钉钉一样
 	createUserTable := `
 	CREATE TABLE IF NOT EXISTS users (
 		id BIGINT PRIMARY KEY AUTO_INCREMENT,

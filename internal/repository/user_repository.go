@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"user-management/internal/model"
 )
 
@@ -22,9 +23,10 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // CreateUser 插入用户
 func (r *UserRepository) CreateUser(user *model.User) (int64, error) {
 	query := `
-	INSERT INTO users( username, password, email, role, status) 
+	INSERT INTO users( username, password, email, role, status)
 	VALUES (?,?,?,?,?);
 	`
+	log.Printf("执行SQL插入: %s, %s, %s, %s, %d", user.Username, user.Password, user.Email, user.Role, user.Status)
 	// 用户登录的时候,可以暂不选择添加头像
 	result, err := r.DB.Exec(query,
 		user.Username,
@@ -37,12 +39,15 @@ func (r *UserRepository) CreateUser(user *model.User) (int64, error) {
 	// updated_at 也设置了更新数据的时候自动更新
 	// 那么下面代码就不用手动更新了
 	if err != nil {
+		log.Printf("SQL执行失败: %v", err)
 		return 0, err
 	}
 	id, err := result.LastInsertId()
 	if err != nil {
+		log.Printf("获取LastInsertId失败: %v", err)
 		return 0, err
 	}
+	log.Printf("LastInsertId: %d", id)
 	return id, nil
 }
 
@@ -65,7 +70,7 @@ func (r *UserRepository) GetUserByUsername(username string) (*model.User, error)
 		&user.Role,
 		&user.Status,
 		&user.CreatedAt,
-		&user.UpdateAt,
+		&user.UpdatedAt,
 	)
 	if err != nil {
 		// 如果用户不存在,不要使用 err == sql.ErrNoRows
@@ -142,4 +147,53 @@ func (r *UserRepository) UpdateUserStatus(userID int64, status int) error {
 	`
 	_, err := r.DB.Exec(query, status, userID)
 	return err
+}
+
+// GetAllList 获取用户列表,带分页
+func (r *UserRepository) GetAllList(offset, limit int) ([]model.User, error) {
+	query := `
+	SELECT id,username,email,avatar_url,role,status,created_at,updated_at
+	FROM users
+	ORDER BY id
+	DESC LIMIT ?
+	OFFSET ?;
+`
+	rows, err := r.DB.Query(query, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []model.User
+
+	for rows.Next() {
+		var u model.User
+		// 把数据库查询出来的每一列数据,一次赋值给结构体字段
+		err := rows.Scan(
+			&u.ID,
+			&u.Username,
+			&u.Email,
+			&u.AvatarURL,
+			&u.Role,
+			&u.Status,
+			&u.CreatedAt,
+			&u.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// GetUserCount 获取用户数量
+func (r *UserRepository) GetUserCount() (int, error) {
+	var count int
+	query := `
+	SELECT COUNT(*) FROM users
+`
+	err := r.DB.QueryRow(query).Scan(&count)
+	return count, err
+
 }

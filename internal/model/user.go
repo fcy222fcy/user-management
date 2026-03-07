@@ -12,7 +12,7 @@ type User struct { // 直接模版渲染不需要加json,但是如果是返回js
 	Role      string
 	Status    int
 	CreatedAt time.Time
-	UpdateAt  time.Time
+	UpdatedAt time.Time
 }
 
 type RegisterRequest struct {

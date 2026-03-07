@@ -70,10 +70,13 @@ func (s *UserService) Register(username, password, email string) (*model.User, e
 	}
 	// 账号是否已存在
 	ok, err = s.IsExistUsername(username)
-	if !ok {
+	if ok {
+		// 这里是注册---账号存在就退出
+		log.Printf("用户名已存在: %s", username)
 		return nil, err
 	}
 	// 创建用户结构体,并插入---密码暂时明文存储
+	now := time.Now()
 	u := model.User{
 		Username:  username,
 		Password:  password,
@@ -81,8 +84,8 @@ func (s *UserService) Register(username, password, email string) (*model.User, e
 		AvatarURL: "",
 		Role:      COMMON,
 		Status:    1,
-		CreatedAt: time.Time{},
-		UpdateAt:  time.Time{},
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 	_, CreateErr := s.Repo.CreateUser(&u)
 	if CreateErr != nil {
@@ -109,11 +112,16 @@ func (s *UserService) IsExistUsername(username string) (bool, error) {
 	// 不看返回的user,就看有没有这个用户
 	_, err := s.Repo.GetUserByUsername(username)
 
-	// 这个返回值,如果不是nil,那就是 用户不存在/查询用户失败
-	if err != nil {
-		// 统一返回用户不存在
-		return false, errors.New("用户不存在")
+	// 如果 err 消息包含"用户不存在"，说明用户不存在
+	if err != nil && err.Error() == "用户不存在" {
+		return false, nil
 	}
+
+	// 如果 err != nil，说明查询失败
+	if err != nil {
+		return false, err
+	}
+	// 用户存在
 	return true, nil
 }
 
@@ -160,4 +168,29 @@ func (s *UserService) Identify(username string) (string, error) {
 		return "user", nil
 	}
 	return "", errors.New("未知角色")
+}
+
+func (s *UserService) GetUserList(page, pageSize int) ([]model.User, int, int, error) {
+	offset := (page - 1) * pageSize
+	// 获取所有用户信息
+	users, SqlErr := s.Repo.GetAllList(offset, pageSize)
+	if SqlErr != nil {
+		return nil, 0, 0, SqlErr
+	}
+
+	// 设置默认头像
+	for i := range users {
+		if users[i].AvatarURL == "" {
+			users[i].AvatarURL = "/static/images/default-avatar.png"
+		}
+	}
+
+	// 获取用户数量
+	totalCount, err := s.Repo.GetUserCount()
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	totalPages := (totalCount + pageSize - 1) / pageSize
+	return users, totalCount, totalPages, nil
+
 }
