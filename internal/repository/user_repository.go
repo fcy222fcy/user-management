@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 	"user-management/internal/model"
 )
 
@@ -23,15 +24,17 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 // CreateUser 插入用户
 func (r *UserRepository) CreateUser(user *model.User) (int64, error) {
 	query := `
-	INSERT INTO users( username, password, email, role, status)
-	VALUES (?,?,?,?,?);
+	INSERT INTO users( username, password, email,avatar_url, role, status)
+	VALUES (?,?,?,?,?,?);
 	`
-	log.Printf("执行SQL插入: %s, %s, %s, %s, %d", user.Username, user.Password, user.Email, user.Role, user.Status)
-	// 用户登录的时候,可以暂不选择添加头像
+	log.Printf("执行SQL插入: %s, %s, %s, %s, %d", user.Username, user.Password, user.Email, user.AvatarURL, user.Role, user.Status)
+	// 用户注册的时候,可以暂不选择添加头像
+	// 手动添加用户的时候,可以添加头像
 	result, err := r.DB.Exec(query,
 		user.Username,
 		user.Password,
 		user.Email,
+		user.AvatarURL,
 		user.Role,
 		user.Status,
 	)
@@ -81,9 +84,41 @@ func (r *UserRepository) GetUserByUsername(username string) (*model.User, error)
 	}
 	return &user, nil
 }
+func (r *UserRepository) GetUserByID(id int64) (*model.User, error) {
+
+	query := `
+		SELECT id, username, password, email, avatar_url, role, status
+		FROM users
+		WHERE id = ?
+`
+	row := r.DB.QueryRow(query, id)
+
+	var user model.User
+	err := row.Scan(
+		&user.ID,
+		&user.Username,
+		&user.Password,
+		&user.Email,
+		&user.AvatarURL,
+		&user.Role,
+		&user.Status,
+	)
+
+	if err != nil {
+		// 如果用户不存在,不要使用 err == sql.ErrNoRows
+		if errors.Is(err, sql.ErrNoRows) { // 这里也可以返回空
+			return nil, fmt.Errorf("用户不存在: %w ", err)
+		}
+		return nil, fmt.Errorf("查询用户失败: %w", err)
+	}
+	return &user, nil
+}
 
 // DeleteUser 根据ID删除用户
-func (r *UserRepository) DeleteUser(userID string) error {
+func (r *UserRepository) DeleteUser(userID int64) error {
+	//测试
+	log.Println("dao层:删除用户")
+
 	// 删除的时候,是点击用户列表中的小垃圾桶,到时候直接传用户名就好了/或者是写邮箱,让用户名可以重复
 	query := `
 	DELETE FROM users
@@ -94,58 +129,29 @@ func (r *UserRepository) DeleteUser(userID string) error {
 	return err
 }
 
-// UpdateUserAvatar 更新用户头像
-func (r *UserRepository) UpdateUserAvatar(userID int64, avatarURL string) error {
-	query := `
-	UPDATE users 
-	SET avatar_url = ?,updated_at = CURRENT_TIMESTAMP
-	WHERE id = ?
-	`
-	_, err := r.DB.Exec(query, avatarURL, userID)
-	return err
-}
+// UpdateUser 更新用户状态
+func (r *UserRepository) UpdateUser(id int64, username, password, email string, status int, avatarURL string, role string) error {
 
-// UpdateUsername 更新用户名
-func (r *UserRepository) UpdateUsername(userID int64, username string) error {
-	query := `
-	UPDATE users 
-	SET username = ?,updated_at = CURRENT_TIMESTAMP
-	WHERE id = ?;
-	`
-	_, err := r.DB.Exec(query, username, userID)
-	return err
-}
+	var query string
+	var args []interface{}
 
-// UpdateUserEmail 更新用户邮箱
-func (r *UserRepository) UpdateUserEmail(userID int64, email string) error {
-	query := `
-	UPDATE users
-	SET email = ?,updated_at = current_timestamp
-	WHERE id = ?;
-	`
-	_, err := r.DB.Exec(query, email, userID)
-	return err
-}
+	if avatarURL != "" {
+		query = `
+		UPDATE users
+		SET username = ?, password = ?, email = ?, status = ?, avatar_url = ?, role = ?, updated_at = current_timestamp
+		WHERE id = ?;
+		`
+		args = []interface{}{username, password, email, status, avatarURL, role, id}
+	} else {
+		query = `
+		UPDATE users
+		SET username = ?, password = ?, email = ?, status = ?, role = ?, updated_at = current_timestamp
+		WHERE id = ?;
+		`
+		args = []interface{}{username, password, email, status, role, id}
+	}
 
-// UpdateUserRole 更新用户角色
-func (r *UserRepository) UpdateUserRole(userID int64, role string) error {
-	query := `
-	UPDATE users
-	SET role = ?,updated_at = current_timestamp
-	WHERE id = ?;
-	`
-	_, err := r.DB.Exec(query, role, userID)
-	return err
-}
-
-// UpdateUserStatus 更新用户状态
-func (r *UserRepository) UpdateUserStatus(userID int64, status int) error {
-	query := `
-	UPDATE users
-	SET status = ?,updated_at = current_timestamp
-	WHERE  id = ?;
-	`
-	_, err := r.DB.Exec(query, status, userID)
+	_, err := r.DB.Exec(query, args...)
 	return err
 }
 
@@ -196,4 +202,115 @@ func (r *UserRepository) GetUserCount() (int, error) {
 	err := r.DB.QueryRow(query).Scan(&count)
 	return count, err
 
+}
+
+func (r *UserRepository) CreateLoginLog(userID int64, username string, success bool, ip, userAgent, message string) error {
+	query := `
+	INSERT INTO login_logs (user_id, username, success, ip, user_agent, message, created_at)
+	VALUES (?, ?, ?, ?, ?, ?, ?)
+`
+	_, err := r.DB.Exec(query, userID, username, success, ip, userAgent, message, time.Now())
+	return err
+}
+
+func (r *UserRepository) GetLoginCountInRange(start, end time.Time) (int, error) {
+	var count int
+	query := `
+	SELECT COUNT(*) FROM login_logs
+	WHERE success = 1 AND created_at >= ? AND created_at < ?
+`
+	err := r.DB.QueryRow(query, start, end).Scan(&count)
+	return count, err
+}
+
+func (r *UserRepository) GetDailyLogins(start, end time.Time) (map[string]int, error) {
+	query := `
+	SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, COUNT(*) AS cnt
+	FROM login_logs
+	WHERE success = 1 AND created_at >= ? AND created_at < ?
+	GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+	ORDER BY DATE_FORMAT(created_at, '%Y-%m-%d')
+`
+	rows, err := r.DB.Query(query, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var day string
+		var count int
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, err
+		}
+		result[day] = count
+	}
+	return result, nil
+}
+
+func (r *UserRepository) GetUserCountBefore(t time.Time) (int, error) {
+	var count int
+	query := `
+	SELECT COUNT(*) FROM users
+	WHERE created_at < ?
+`
+	err := r.DB.QueryRow(query, t).Scan(&count)
+	return count, err
+}
+
+func (r *UserRepository) GetUserCountInRange(start, end time.Time) (int, error) {
+	var count int
+	query := `
+	SELECT COUNT(*) FROM users
+	WHERE created_at >= ? AND created_at < ?
+`
+	err := r.DB.QueryRow(query, start, end).Scan(&count)
+	return count, err
+}
+
+func (r *UserRepository) GetDeactivatedCount() (int, error) {
+	var count int
+	query := `
+	SELECT COUNT(*) FROM users
+	WHERE status = 0
+`
+	err := r.DB.QueryRow(query).Scan(&count)
+	return count, err
+}
+
+func (r *UserRepository) GetDeactivatedCountInRange(start, end time.Time) (int, error) {
+	var count int
+	query := `
+	SELECT COUNT(*) FROM users
+	WHERE status = 0 AND updated_at >= ? AND updated_at < ?
+`
+	err := r.DB.QueryRow(query, start, end).Scan(&count)
+	return count, err
+}
+
+func (r *UserRepository) GetDailyRegistrations(start, end time.Time) (map[string]int, error) {
+	query := `
+	SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS day, COUNT(*) AS cnt
+	FROM users
+	WHERE created_at >= ? AND created_at < ?
+	GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+	ORDER BY DATE_FORMAT(created_at, '%Y-%m-%d')
+`
+	rows, err := r.DB.Query(query, start, end)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := make(map[string]int)
+	for rows.Next() {
+		var day string
+		var count int
+		if err := rows.Scan(&day, &count); err != nil {
+			return nil, err
+		}
+		result[day] = count
+	}
+	return result, nil
 }

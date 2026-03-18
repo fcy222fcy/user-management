@@ -9,7 +9,7 @@
 </head>
 
 <body class="bg-gray-100 flex items-center justify-center min-h-screen bg-cover bg-center"
-      style="background-image: url('../static/风景.jpg');">
+      style="background-image: url('../static/images/风景.jpg');">
 <!-- 登录页面 -->
 <div id="login-page" class="hidden bg-white p-8 rounded-lg shadow-lg w-full max-w-md relative z-10">
     <h1 class="text-2xl font-bold text-center text-gray-800 mb-6">后台登录</h1>
@@ -96,93 +96,7 @@
     </form>
 </div>
 
-<script>
-    // 页面切换逻辑
-    const loginPage = document.getElementById('login-page');
-    const registerPage = document.getElementById('register-page');
-    const toRegisterLink = document.getElementById('to-register');
-    const toLoginLink = document.getElementById('to-login');
-
-    // 默认显示登录页面
-    loginPage.classList.remove('hidden');
-
-    // 点击"去注册"链接
-    toRegisterLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        loginPage.classList.add('hidden');
-        registerPage.classList.remove('hidden');
-    });
-
-    // 点击"去登录"链接
-    toLoginLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        registerPage.classList.add('hidden');
-        loginPage.classList.remove('hidden');
-    });
-
-    // 处理登录表单提交
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const form = e.target;
-        const formData = new FormData(form);
-
-        try {
-            const response = await fetch('/login', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.code === 200) {
-                // 登录成功
-                if (data.redirect) {
-                    window.location.href = data.redirect;
-                } else {
-                    window.location.href = '/';
-                }
-            } else {
-                // 确保这里显示的是后端返回的 message
-                alert(data.message || '登录失败');
-            }
-        } catch (error) {
-            alert('登录请求失败，请重试');
-            console.error('登录错误:', error);
-        }
-    });
-
-    // 处理注册表单提交
-    document.getElementById('register-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const form = e.target;
-        const formData = new FormData(form);
-
-        try {
-            const response = await fetch('/register', {
-                method: 'POST',
-                body: formData
-            });
-
-            const data = await response.json();
-
-            if (data.code === 200) {
-                alert(data.message || '注册成功');
-                // 自动跳转到登录页面
-                setTimeout(() => {
-                    registerPage.classList.add('hidden');
-                    loginPage.classList.remove('hidden');
-                }, 500);
-            } else {
-                alert(data.message || '注册失败');
-            }
-        } catch (error) {
-            alert('注册请求失败，请重试');
-            console.error('注册错误:', error);
-        }
-    });
-</script>
+<script src="/static/login.js"></script>
 
 </body>
 

@@ -20,7 +20,7 @@ func main() {
 
 	// 2. 初始化数据库
 	if err := database.InitDB(); err != nil {
-		log.Fatal("数据库初始化失败:", err)
+		log.Fatalf("数据库初始化失败: %v", err)
 	}
 	log.Println("数据库初始化成功")
 
@@ -29,22 +29,18 @@ func main() {
 
 	// 初始化各层
 	userRepo := repository.NewUserRepository(database.DB)
-	userSvc := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo)
+	userHandler := handler.NewUserHandler(userService)
 
 	// 创建路由
 	mux := http.NewServeMux()
 
 	// 注册路由
-	handler.RegisterUserRoutes(mux, userSvc)
+	handler.RegisterUserRoutes(mux, userHandler)
 
 	// 注册静态资源(css,js,images)
 	staticFS := http.FileServer(http.Dir("web/static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", staticFS))
-
-	// 首页
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, "web/templates/index.html")
-	})
 
 	// 中间件
 	handlerWithMiddleware := middleware.CORS(mux)
@@ -54,8 +50,8 @@ func main() {
 	if port == "" {
 		port = "8899"
 	}
-	log.Printf("系统已经准备好了,持续监听端口 %s ... \n", port)
-	log.Printf("访问地址: https://localhost:%s\n", port)
+	log.Printf("系统已经准备好了,持续监听端口 %s ...", port)
+	log.Printf("访问地址: https://localhost:%s", port)
 	log.Fatal(http.ListenAndServe(":"+port, handlerWithMiddleware))
 	//log.Fatal(http.ListenAndServeTLS(":"+port, "D:\\server.crt", "D:\\server.key", handlerWithMiddleware))
 }

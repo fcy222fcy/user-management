@@ -25,5 +25,25 @@ func InitTable() error {
 	if err != nil {
 		return fmt.Errorf("创建 users 表失败:%w", err)
 	}
+
+	createLoginLogTable := `
+	CREATE TABLE IF NOT EXISTS login_logs (
+		id BIGINT PRIMARY KEY AUTO_INCREMENT,
+		user_id BIGINT DEFAULT 0,
+		username VARCHAR(50) DEFAULT '',
+		success TINYINT DEFAULT 0,
+		ip VARCHAR(64) DEFAULT '',
+		user_agent VARCHAR(255) DEFAULT '',
+		message VARCHAR(255) DEFAULT '',
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		INDEX idx_login_user_id (user_id),
+		INDEX idx_login_created_at (created_at)
+	);`
+
+	_, err = DB.Exec(createLoginLogTable)
+	if err != nil {
+		return fmt.Errorf("创建 login_logs 表失败:%w", err)
+	}
+
 	return nil
 }

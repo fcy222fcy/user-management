@@ -55,6 +55,45 @@
    justify-content: center;
    padding: 0 0.5rem;
   }
+
+  /* 自定义模态弹窗样式 */
+  .modal {
+   display: none;
+   position: fixed;
+   z-index: 9999;
+   left: 0;
+   top: 0;
+   width: 100%;
+   height: 100%;
+   overflow: auto;
+   background-color: rgba(0,0,0,0.5);
+  }
+
+  .modal-content {
+   background-color: #fefefe;
+   margin: 15% auto;
+   padding: 20px;
+   border: 1px solid #888;
+   width: 80%;
+   max-width: 500px;
+   border-radius: 8px;
+   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .close {
+   color: #aaa;
+   float: right;
+   font-size: 28px;
+   font-weight: bold;
+   cursor: pointer;
+  }
+
+  .close:hover,
+  .close:focus {
+   color: black;
+   text-decoration: none;
+   cursor: pointer;
+  }
  </style>
 </head>
 
@@ -67,7 +106,7 @@
  <nav>
   <ul class="space-y-2">
    <li>
-    <a href="/index" class="flex items-center p-2 hover:bg-gray-700 rounded">
+    <a href="/" class="flex items-center p-2 hover:bg-gray-700 rounded">
      <i data-feather="home" class="w-4 h-4 mr-2"></i> 首页概览
     </a>
    </li>
@@ -88,7 +127,7 @@
     <i data-feather="bell"></i>
    </button>
    <div class="flex items-center gap-2">
-    <img src="{{.NowAvatar}}" class="w-8 h-8 rounded-full">
+    <img id="headerAvatar" src="/static/images/default-avatar.png" class="w-8 h-8 rounded-full cursor-pointer hover:opacity-80" onclick="openProfileModal()" title="个人主页">
     <button onclick="logout()" class="text-red-600 hover:text-red-700 flex items-center gap-1">
      <i data-feather="log-out" class="w-5 h-5"></i>
      <span class="hidden sm:inline">退出系统</span>
@@ -113,7 +152,7 @@
      <option value="禁用">禁用</option>
     </select>
    </div>
-   <button onclick="openUserModal()" id="create-user-button"
+   <button onclick="openCreateUserModal()" id="create-user-button"
            class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 whitespace-nowrap">
     <i data-feather="plus"></i>
     新建用户
@@ -133,469 +172,198 @@
     </tr>
     </thead>
     <tbody class="divide-y divide-gray-200" id="userTableBody">
-    {{range .Users}}
-     <tr class="hover:bg-gray-50" data-userid="{{.ID}}" data-username="{{.Username}}" data-email="{{.Email}}" data-status="{{.Status}}" data-avatar="{{.AvatarURL}}" data-role="{{.Role}}">
-      <td class="px-6 py-4">
-       <div class="relative flex items-center gap-3">
-        <img src="{{.AvatarURL}}" class="w-8 h-8 rounded-full">
-        <div>
-         <p class="font-medium">{{.Username}}</p>
-         <p class="text-sm text-gray-500">{{.Email}}</p>
-        </div>
-       </div>
-      </td>
-      <td class="px-6 py-4">
-       <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-        {{if eq .Role "admin"}}管理员{{else if eq .Role "user"}}普通用户{{else}}{{.Role}}{{end}}
-       </span>
-      </td>
-      <td class="px-6 py-4 time-cell">{{.CreatedAt}}</td>
-      <td class="px-6 py-4 time-cell">{{.UpdatedAt}}</td>
-      <td class="px-6 py-4">
-       <span class="px-2 py-1 {{if eq .Status 1}}bg-green-100 text-green-800{{else}}bg-red-100 text-red-800{{end}} rounded-full text-sm">
-       {{if eq .Status 1}}启用{{else}}禁用{{end}}
-       </span>
-      </td>
-      <td class="px-6 py-4" id="operation">
-       <div class="flex gap-2 button-3">
-        <button class="p-2 hover:bg-gray-100 rounded" onclick="openEditModal({{.ID}})">
-         <i data-feather="edit" class="w-4 h-4 text-blue-600"></i>
-        </button>
-        <button class="p-2 hover:bg-gray-100 rounded" onclick="deleteUser({{.ID}})">
-         <i data-feather="trash-2" class="w-4 h-4 text-red-600"></i>
-        </button>
-       </div>
-      </td>
-     </tr>
-    {{end}}
     </tbody>
    </table>
   </div>
 
   <div class="flex flex-col sm:flex-row justify-between items-center px-4 py-3 bg-white rounded-xl shadow">
-   <span class="text-sm text-gray-600">共 {{.TotalCount}} 项</span>
+   <span class="text-sm text-gray-600">共 <span id="totalCount">0</span> 项</span>
    <div class="flex items-center gap-1 mt-2 sm:mt-0" id="pagination">
-    <!-- 首页按钮 -->
-    <button onclick="changePage(1)" class="pagination-btn {{if eq .Page 1}}disabled{{end}}">
-     首页
-    </button>
-
-    <!-- 上一页按钮 -->
-    <button onclick="changePage({{.Page}}-1)" class="pagination-btn {{if eq .Page 1}}disabled{{end}}">
-     上一页
-    </button>
-
-    <!-- 当前页码 -->
-    {{if gt .StartPage 1}}
-     <span class="pagination-ellipsis">...</span>
-    {{end}}
-
-    <span class="pagination-btn active">{{.Page}}</span>
-
-    {{if lt .EndPage .TotalPages}}
-     <span class="pagination-ellipsis">...</span>
-    {{end}}
-
-    <!-- 下一页按钮 -->
-    <button onclick="changePage({{.Page}}+1)" class="pagination-btn {{if eq .Page .TotalPages}}disabled{{end}}">
-     下一页
-    </button>
-
-    <!-- 尾页按钮 -->
-    <button onclick="changePage({{.TotalPages}})" class="pagination-btn {{if eq .Page .TotalPages}}disabled{{end}}">
-     尾页
-    </button>
    </div>
   </div>
 
- <div id="userModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[999]">
-  <div class="bg-white rounded-xl p-6 w-full max-w-md">
-   <h3 class="text-xl font-bold mb-4" id="modalTitle">新建用户</h3>
-   <form class="space-y-4" id="editUserForm">
-    <div class="relative">
-     <label class="block text-sm font-medium mb-1">头像</label>
-     <img id="avatarPreview" src="https://via.placeholder.com/40" class="w-16 h-16 rounded-full">
-     <input type="file" id="avatarInput" class="hidden" accept="image/*" onchange="previewAvatar(this)">
-     <button type="button" onclick="document.getElementById('avatarInput').click()"
-             class="absolute bottom-0 right-0 bg-white w-6 h-6 rounded-full flex items-center justify-center">
-      <i data-feather="edit" class="w-4 h-4 text-blue-600"></i>
-     </button>
+  <!-- 自定义用户详情模态弹窗 -->
+  <div id="userDetailModal" class="modal">
+   <div class="modal-content">
+    <div class="flex justify-between items-center mb-4">
+     <h2 class="text-xl font-bold">用户详情</h2>
+     <span class="close" onclick="closeUserDetailModal()">&times;</span>
     </div>
-    <div>
-     <label class="block text-sm font-medium mb-1">用户名</label>
-     <input type="text" id="editUsername" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+    <div class="mt-4">
+     <form id="userDetailForm" class="space-y-4">
+      <div class="flex items-center gap-4 mb-6">
+       <div class="relative">
+        <img id="modalAvatar" src="/static/images/default-avatar.png" class="w-20 h-20 rounded-full">
+        <input type="file" id="modalAvatarInput" class="hidden" accept="image/*" onchange="previewModalAvatar(this)">
+        <button type="button" onclick="document.getElementById('modalAvatarInput').click()" id="modalAvatarEditBtn" class="absolute bottom-0 right-0 bg-white w-6 h-6 rounded-full flex items-center justify-center" style="display: none;">
+         <i data-feather="edit" class="w-4 h-4 text-blue-600"></i>
+        </button>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">用户名</label>
+        <input type="text" id="modalUsername" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" disabled>
+       </div>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-500 mb-1">邮箱</label>
+       <input type="email" id="modalEmail" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" disabled>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-500 mb-1">新密码</label>
+       <input type="password" id="modalPassword" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="留空表示不修改" disabled>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">角色</label>
+        <select id="modalRole" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" disabled>
+         <option value="user">普通用户</option>
+         <option value="admin">管理员</option>
+        </select>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">状态</label>
+        <select id="modalStatus" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" disabled>
+         <option value="1">启用</option>
+         <option value="0">禁用</option>
+        </select>
+       </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">创建时间</label>
+        <p id="modalCreatedAt" class="text-gray-600"></p>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">最后更新时间</label>
+        <p id="modalUpdatedAt" class="text-gray-600"></p>
+       </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-6" id="modalActions">
+       <button type="button" onclick="closeUserDetailModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">关闭</button>
+       <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700" id="modalSubmitBtn" style="display: none;">保存修改</button>
+      </div>
+     </form>
     </div>
-    <div>
-     <label class="block text-sm font-medium mb-1">密码</label>
-     <input type="password" id="editPassword" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="留空表示不修改">
-    </div>
-    <div>
-     <label class="block text-sm font-medium mb-1">Email</label>
-     <input type="email" id="editEmail" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-    </div>
-    <div>
-     <label class="block text-sm font-medium mb-1">用户状态</label>
-     <select id="editStatus" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-      <option value="启用">启用</option>
-      <option value="禁用">禁用</option>
-     </select>
-    </div>
-    <div>
-     <label class="block text-sm font-medium mb-1">用户角色</label>
-     <select id="editRole" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
-      <option value="普通用户">普通用户</option>
-      <option value="管理员">管理员</option>
-     </select>
-    </div>
-    <div class="flex justify-end gap-2">
-     <button type="button" onclick="closeUserModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
-     <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">提交</button>
-    </div>
-   </form>
+   </div>
   </div>
- </div>
+
+  <!-- 新建用户模态弹窗 -->
+  <div id="createUserModal" class="modal">
+   <div class="modal-content">
+    <div class="flex justify-between items-center mb-4">
+     <h2 class="text-xl font-bold">新建用户</h2>
+     <span class="close" onclick="closeCreateUserModal()">&times;</span>
+    </div>
+    <div class="mt-4">
+     <form id="createUserForm" class="space-y-4">
+      <div class="flex items-center gap-4 mb-6">
+       <div class="relative">
+        <img id="createAvatar" src="/static/images/default-avatar.png" class="w-20 h-20 rounded-full">
+        <input type="file" id="createAvatarInput" class="hidden" accept="image/*" onchange="previewCreateAvatar(this)">
+        <button type="button" onclick="document.getElementById('createAvatarInput').click()" class="absolute bottom-0 right-0 bg-white w-6 h-6 rounded-full flex items-center justify-center">
+         <i data-feather="edit" class="w-4 h-4 text-blue-600"></i>
+        </button>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">用户名</label>
+        <input type="text" id="createUsername" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+       </div>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-500 mb-1">邮箱</label>
+       <input type="email" id="createEmail" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" required>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-500 mb-1">密码</label>
+       <input type="password" id="createPassword" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="必填" required>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">角色</label>
+        <select id="createRole" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+         <option value="user">普通用户</option>
+         <option value="admin">管理员</option>
+        </select>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">状态</label>
+        <select id="createStatus" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+         <option value="1">启用</option>
+         <option value="0">禁用</option>
+        </select>
+       </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+       <button type="button" onclick="closeCreateUserModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">取消</button>
+       <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">创建</button>
+      </div>
+     </form>
+    </div>
+   </div>
+  </div>
+
+  <!-- 个人主页模态弹窗 -->
+  <div id="profileModal" class="modal">
+   <div class="modal-content">
+    <div class="flex justify-between items-center mb-4">
+     <h2 class="text-xl font-bold">个人主页</h2>
+     <span class="close" onclick="closeProfileModal()">&times;</span>
+    </div>
+    <div class="mt-4">
+     <form id="profileForm" class="space-y-4">
+      <div class="flex items-center gap-4 mb-6">
+       <div class="relative">
+        <img id="profileAvatar" src="/static/images/default-avatar.png" class="w-20 h-20 rounded-full">
+        <input type="file" id="profileAvatarInput" class="hidden" accept="image/*" onchange="previewProfileAvatar(this)">
+        <button type="button" onclick="document.getElementById('profileAvatarInput').click()" class="absolute bottom-0 right-0 bg-white w-6 h-6 rounded-full flex items-center justify-center">
+         <i data-feather="edit" class="w-4 h-4 text-blue-600"></i>
+        </button>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">用户名</label>
+        <input type="text" id="profileUsername" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+       </div>
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-500 mb-1">邮箱</label>
+       <input type="email" id="profileEmail" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+      </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-500 mb-1">新密码</label>
+       <input type="password" id="profilePassword" class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="留空表示不修改">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">角色</label>
+        <p id="profileRole" class="text-gray-600 py-2"></p>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">状态</label>
+        <p id="profileStatus" class="text-gray-600 py-2"></p>
+       </div>
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">创建时间</label>
+        <p id="profileCreatedAt" class="text-gray-600 py-2"></p>
+       </div>
+       <div>
+        <label class="block text-sm font-medium text-gray-500 mb-1">最后更新时间</label>
+        <p id="profileUpdatedAt" class="text-gray-600 py-2"></p>
+       </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+       <button type="button" onclick="closeProfileModal()" class="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">关闭</button>
+       <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">保存修改</button>
+      </div>
+     </form>
+    </div>
+   </div>
+  </div>
+
  </div>
 </main>
 
-<script>
- let currentUserId = null;
- let currentPage = {{.Page}};
- let totalPages = {{.TotalPages}};
- let totalCount = {{.TotalCount}};
- let isSearching = false;
- let searchTerm = '';
-
- // 获取用户角色
- const userRole = "{{.NowRole}}"; // 假设从后端传递用户角色到前端
-
- if (userRole!== "管理员") {
-  // 隐藏新增、修改和删除图标
-  const createButton = document.getElementById('create-user-button');
-  const editButtons = document.querySelectorAll('.button-3');
-
-  console.log(editButtons)
-  if (createButton) {
-   createButton.style.display = 'none';
-  }
-
-  editButtons.forEach(item => {
-   item.style.display = 'none';
-  });
-
- }
-
- // 初始化页面
- document.addEventListener('DOMContentLoaded', () => {
-  feather.replace();
-
-  // 保存当前页面的用户数据
-  const userRows = document.querySelectorAll('#userTableBody tr');
-  const users = Array.from(userRows).map(row => ({
-   id: row.dataset.userid,
-   username: row.dataset.username,
-   email: row.dataset.email,
-   status: row.dataset.status,
-   avatar: row.dataset.avatar,
-   role: row.dataset.role,
-   createdAt: row.querySelector('td:nth-child(3)').textContent.trim()
-  }));
-
-  // 搜索输入框事件
-  document.getElementById('searchInput').addEventListener('input', function() {
-   searchTerm = this.value.trim();
-   if (searchTerm.length > 0) {
-    isSearching = true;
-    searchUsers(searchTerm, 1); // 搜索时重置到第一页
-   } else {
-    isSearching = false;
-    loadPage(1); // 清空搜索时回到第一页
-   }
-  });
-
-// 格式化时间
-  const timeCells = document.querySelectorAll(".time-cell")
-
-  timeCells.forEach(cell => {
-   const rawTime = cell.textContent.trim()
-   if (rawTime) {
-    cell.textContent = formatTime(rawTime)
-   }
-  })
-  // 状态筛选事件
-  document.getElementById('statusFilter').addEventListener('change', function() {
-   if (isSearching) {
-    searchUsers(searchTerm, currentPage);
-   } else {
-    loadPage(currentPage);
-   }
-  });
- });
-
- // 加载普通分页
- function loadPage(page) {
-  const statusFilter = document.getElementById('statusFilter').value;
-  const url = new URL(window.location.origin + '/userList');
-  url.searchParams.set('page', page);
-  if (statusFilter) {
-   url.searchParams.set('status', statusFilter);
-  }
-
-  window.location.href = url.toString();
- }
-
- // 搜索用户
- function searchUsers(username, page) {
-  const statusFilter = document.getElementById('statusFilter').value;
-
-  fetch(`/api/users/search/${encodeURIComponent(username)}?page=${page}&status=${statusFilter}`)
-          .then(response => response.json())
-          .then(data => {
-           if (data.success) {
-            updateUserTable(data.users);
-            updatePagination(data.page, data.totalPages, data.totalCount, true);
-            currentPage = data.page;
-            totalPages = data.totalPages;
-            totalCount = data.totalCount;
-           } else {
-            alert('搜索失败: ' + data.message);
-           }
-          })
-          .catch(error => {
-           console.error('搜索错误:', error);
-           alert('搜索失败，请检查网络连接');
-          });
- }
-
- // 切换页码
- function changePage(newPage) {
-  if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
-
-  if (isSearching) {
-   searchUsers(searchTerm, newPage);
-  } else {
-   loadPage(newPage);
-  }
- }
-
- // 更新用户表格显示
- function updateUserTable(users) {
-  const tbody = document.getElementById('userTableBody');
-  tbody.innerHTML = '';
-
-  users.forEach(user => {
-   const row = document.createElement('tr');
-   row.className = 'hover:bg-gray-50';
-   row.dataset.userid = user.id;
-   row.dataset.username = user.username;
-   row.dataset.email = user.email;
-   row.dataset.status = user.status;
-   row.dataset.avatar = user.avatar;
-   row.dataset.role = user.role;
-
-   row.innerHTML = `
-    <td class="px-6 py-4">
-     <div class="relative flex items-center gap-3">
-      <img src="${user.avatar}" class="w-8 h-8 rounded-full">
-      <div>
-       <p class="font-medium">${user.username}</p>
-       <p class="text-sm text-gray-500">${user.email}</p>
-      </div>
-     </div>
-    </td>
-    <td class="px-6 py-4">
-     <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
-      ${user.role === 'admin' ? '管理员' : (user.role === 'user' ? '普通用户' : user.role)}
-     </span>
-    </td>
-    <td class="px-6 py-4">${user.createdAt || ''}</td>
-    <td class="px-6 py-4">
-     <span class="px-2 py-1 ${user.status == 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} rounded-full text-sm">
-      ${user.status == 1 ? '启用' : '禁用'}
-     </span>
-    </td>
-    <td class="px-6 py-4">
-     <div class="flex gap-2">
-      <button class="p-2 hover:bg-gray-100 rounded" onclick="openEditModal(${user.id})">
-       <i data-feather="edit" class="w-4 h-4 text-blue-600"></i>
-      </button>
-      <button class="p-2 hover:bg-gray-100 rounded" onclick="deleteUser(${user.id})">
-       <i data-feather="trash-2" class="w-4 h-4 text-red-600"></i>
-      </button>
-     </div>
-    </td>
-   `;
-
-   tbody.appendChild(row);
-  });
-
-  feather.replace();
- }
-
- // 指定日期格式
- function formatTime(timeStr) {
-  const date = new Date(timeStr)
-
-  return date.getFullYear() + '-' +
-          String(date.getMonth() + 1).padStart(2, '0') + '-' +
-          String(date.getDate()).padStart(2, '0') + ' ' +
-          String(date.getHours()).padStart(2, '0') + ':' +
-          String(date.getMinutes()).padStart(2, '0') + ':' +
-          String(date.getSeconds()).padStart(2, '0')
- }
-
- function openEditModal(userId) {
-  const row = document.querySelector(`tr[data-userid="${userId}"]`);
-  if (row) {
-   document.getElementById('modalTitle').innerText = '编辑用户';
-   document.getElementById('avatarPreview').src = row.dataset.avatar || 'https://via.placeholder.com/40';
-   document.getElementById('editUsername').value = row.dataset.username || '';
-   document.getElementById('editEmail').value = row.dataset.email || '';
-   document.getElementById('editPassword').value = '';
-   document.getElementById('editPassword').placeholder = '留空表示不修改';
-   document.getElementById('editStatus').value = row.dataset.status || '启用';
-   document.getElementById('editRole').value = row.dataset.role || '普通用户';
-   currentUserId = userId;
-   document.getElementById('userModal').classList.remove('hidden');
-  } else {
-   // 如果找不到行数据，可能需要通过API获取
-   fetch(`/api/users/${userId}`)
-           .then(response => response.json())
-           .then(data => {
-            if (data.success) {
-             const user = data.user;
-             document.getElementById('modalTitle').innerText = '编辑用户';
-             document.getElementById('avatarPreview').src = user.avatar || 'https://via.placeholder.com/40';
-             document.getElementById('editUsername').value = user.username || '';
-             document.getElementById('editEmail').value = user.email || '';
-             document.getElementById('editPassword').value = '';
-             document.getElementById('editPassword').placeholder = '留空表示不修改';
-             document.getElementById('editStatus').value = user.status || '启用';
-             document.getElementById('editRole').value = user.role || '普通用户';
-             currentUserId = userId;
-             document.getElementById('userModal').classList.remove('hidden');
-            } else {
-             alert('获取用户信息失败: ' + data.message);
-            }
-           })
-           .catch(error => {
-            console.error('Error:', error);
-            alert('获取用户信息失败');
-           });
-  }
- }
-
- function openUserModal() {
-  currentUserId = null;
-  document.getElementById('modalTitle').innerText = '新建用户';
-  document.getElementById('avatarPreview').src = 'https://via.placeholder.com/40';
-  document.getElementById('editUsername').value = '';
-  document.getElementById('editEmail').value = '';
-  document.getElementById('editPassword').value = '';
-  document.getElementById('editPassword').placeholder = '请输入密码';
-  document.getElementById('editStatus').value = '启用';
-  document.getElementById('editRole').value = '普通用户';
-  document.getElementById('userModal').classList.remove('hidden');
- }
-
- function closeUserModal() {
-  document.getElementById('userModal').classList.add('hidden');
-  document.getElementById('avatarInput').value = '';
- }
-
- function previewAvatar(input) {
-  if (input.files && input.files[0]) {
-   const reader = new FileReader();
-   reader.onload = function(e) {
-    document.getElementById('avatarPreview').src = e.target.result;
-   }
-   reader.readAsDataURL(input.files[0]);
-  }
- }
-
- // 表单提交处理
- document.getElementById('editUserForm').addEventListener('submit', e => {
-  e.preventDefault();
-
-  const username = document.getElementById('editUsername').value;
-  const password = document.getElementById('editPassword').value;
-  const email = document.getElementById('editEmail').value;
-  const status = document.getElementById('editStatus').value;
-  const role = document.getElementById('editRole').value;
-  const avatarFile = document.getElementById('avatarInput').files[0];
-
-  const formData = new FormData();
-  formData.append('id', currentUserId || '');
-  formData.append('username', username);
-  formData.append('email', email);
-  formData.append('status', status);
-  formData.append('role', role);
-  if (password) formData.append('password', password);
-  if (avatarFile) formData.append('avatar', avatarFile);
-
-  fetch(currentUserId ? `/api/users/update/${currentUserId}` : '/api/users/create', {
-   method: 'POST',
-   body: formData
-  })
-          .then(response => response.json())
-          .then(data => {
-           if (data.success) {
-            alert('保存成功！');
-            closeUserModal();
-            // 根据当前状态重新加载数据
-            if (isSearching) {
-             searchUsers(searchTerm, currentPage);
-            } else {
-             loadPage(currentPage);
-            }
-           } else {
-            alert('保存失败: ' + data.message);
-           }
-          })
-          .catch(error => {
-           console.error('Error:', error);
-           alert('保存失败，请检查网络连接');
-          });
- });
-
- function deleteUser(userId) {
-  if (confirm('确定要删除该用户吗？')) {
-   fetch(`/api/users/delete/${userId}`, {
-    method: 'DELETE'
-   })
-           .then(response => response.json())
-           .then(data => {
-            if (data.success) {
-             alert('用户已删除');
-             // 根据当前状态重新加载数据
-             if (isSearching) {
-              searchUsers(searchTerm, currentPage);
-             } else {
-              loadPage(currentPage);
-             }
-            } else {
-             alert('删除失败: ' + data.message);
-            }
-           })
-           .catch(error => {
-            console.error('Error:', error);
-            alert('删除失败，请检查网络连接');
-           });
-  }
- }
-
- function logout() {
-  if (confirm('确定要退出系统吗？')) {
-   fetch('/logout', {
-    method: 'POST'
-   }).then(response => {
-    if (response.ok) {
-     // 刷新页面
-     window.location.reload(true);
-     window.location.href = '/login';
-    }
-   });
-  }
- }
-</script>
+<script src="/static/userList.js"></script>
 </body>
 </html>
