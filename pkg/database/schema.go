@@ -31,13 +31,11 @@ func InitTable() error {
 		id BIGINT PRIMARY KEY AUTO_INCREMENT,
 		user_id BIGINT DEFAULT 0,
 		username VARCHAR(50) DEFAULT '',
-		success TINYINT DEFAULT 0,
-		ip VARCHAR(64) DEFAULT '',
-		user_agent VARCHAR(255) DEFAULT '',
-		message VARCHAR(255) DEFAULT '',
+		action VARCHAR(20) DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 		INDEX idx_login_user_id (user_id),
-		INDEX idx_login_created_at (created_at)
+		INDEX idx_login_created_at (created_at),
+		INDEX idx_login_action (action)
 	);`
 
 	_, err = DB.Exec(createLoginLogTable)

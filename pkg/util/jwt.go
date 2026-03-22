@@ -13,6 +13,7 @@ import (
 
 var jwtSecret = []byte(getEnvOrDefault("JWT_SECRET", "secret"))
 
+// 从env中读取
 func getEnvOrDefault(key, fallback string) string {
 	value := os.Getenv(key)
 	if value == "" {
@@ -26,15 +27,17 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// GenerateToken 生成token
 func GenerateToken(userID int64) (string, error) {
 	claims := Claims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
+			// 24小时过期
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-
+	// 根据Header和Payload生成签名,最终拼接成完整的字符串
 	return token.SignedString(jwtSecret)
 
 }
@@ -43,6 +46,7 @@ func GenerateToken(userID int64) (string, error) {
 func ParseToken(tokenStr string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
+		// 校验token的算法签名
 		if token.Method.Alg() != jwt.SigningMethodHS256.Alg() {
 			return nil, fmt.Errorf("unexpected signing method: %s", token.Method.Alg())
 		}
@@ -57,6 +61,7 @@ func ParseToken(tokenStr string) (*Claims, error) {
 	return claims, nil
 }
 
+// GetUserID 从请求中获取 userID
 func GetUserID(r *http.Request) int64 {
 	userID, ok := r.Context().Value("userID").(int64)
 	if !ok {
@@ -65,6 +70,7 @@ func GetUserID(r *http.Request) int64 {
 	return userID
 }
 
+// GetCurrentUser 从请求中获取当前用户
 func GetCurrentUser(r *http.Request, userService *service.UserService) (*model.User, error) {
 	userID := GetUserID(r)
 	if userID == 0 {

@@ -195,6 +195,32 @@ func (s *UserService) GetUserList(page, pageSize int) ([]model.User, int, int, e
 
 }
 
+// SearchUsers 搜索用户，支持用户名模糊搜索和状态筛选
+func (s *UserService) SearchUsers(keyword string, status int, page, pageSize int) ([]model.User, int, int, error) {
+	offset := (page - 1) * pageSize
+
+	// 获取搜索的用户列表
+	users, err := s.Repo.SearchUsers(keyword, status, offset, pageSize)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+
+	// 设置默认头像
+	for i := range users {
+		if users[i].AvatarURL == "" {
+			users[i].AvatarURL = "/static/images/default-avatar.png"
+		}
+	}
+
+	// 获取搜索的总数
+	totalCount, err := s.Repo.GetSearchUsersCount(keyword, status)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	totalPages := (totalCount + pageSize - 1) / pageSize
+	return users, totalCount, totalPages, nil
+}
+
 // CreateUser 创建用户
 func (s *UserService) CreateUser(currentUserRole string, username, password, email, avatarURL, role string, status int) (int64, error) {
 	// 权限检查
@@ -237,9 +263,6 @@ func (s *UserService) CreateUser(currentUserRole string, username, password, ema
 // DeleteUser 根据ID删除用户
 func (s *UserService) DeleteUser(currentUserID int64, currentUserRole string, targetUserID int64) error {
 
-	//测试
-	log.Println("handler层,删除用户")
-
 	// 权限检查
 	if currentUserRole != "admin" {
 		return errors.New("没有权限删除用户")
@@ -254,6 +277,9 @@ func (s *UserService) DeleteUser(currentUserID int64, currentUserRole string, ta
 	targetUser, err := s.Repo.GetUserByID(targetUserID)
 	if err != nil || targetUser == nil {
 		return errors.New("用户不存在")
+	}
+	if targetUser.Role == "admin" {
+		return errors.New("不能删除管理员")
 	}
 
 	// 执行删除
@@ -296,17 +322,18 @@ func (s *UserService) GetDashboardStats() (*model.DashboardStats, error) {
 		return nil, err
 	}
 
-	deactivatedUsers, err := s.Repo.GetDeactivatedCount()
+	// 从login_logs统计删除用户（注销用户）
+	deletedUsers, err := s.Repo.GetDeletedUsersCount()
 	if err != nil {
 		return nil, err
 	}
 
-	deactivatedThisMonth, err := s.Repo.GetDeactivatedCountInRange(startOfMonth, startOfNextMonth)
+	deletedThisMonth, err := s.Repo.GetDeletedUsersCountInRange(startOfMonth, startOfNextMonth)
 	if err != nil {
 		return nil, err
 	}
 
-	deactivatedPrevMonth, err := s.Repo.GetDeactivatedCountInRange(startOfPrevMonth, startOfMonth)
+	deletedPrevMonth, err := s.Repo.GetDeletedUsersCountInRange(startOfPrevMonth, startOfMonth)
 	if err != nil {
 		return nil, err
 	}
@@ -330,8 +357,8 @@ func (s *UserService) GetDashboardStats() (*model.DashboardStats, error) {
 		UserGrowthRate:   calcGrowthRate(totalUsersPrev, totalUsersPrevMonth),
 		MonthLogins:      monthLogins,
 		LoginGrowthRate:  calcGrowthRate(monthLogins, prevMonthLogins),
-		DeactivatedUsers: deactivatedUsers,
-		DeactivatedRate:  calcGrowthRate(deactivatedThisMonth, deactivatedPrevMonth),
+		DeactivatedUsers: deletedUsers,
+		DeactivatedRate:  calcGrowthRate(deletedThisMonth, deletedPrevMonth),
 		LoginTrend:       trend,
 	}
 
@@ -392,7 +419,7 @@ func (s *UserService) UpdateUser(currentUserID int64, currentUserRole string, ta
 		username = u.Username
 	}
 
-	// 3 密码格式校验（如果填写了）
+	// 3 密码格式校验(如果填写了)
 	if password != "" {
 		if err := s.IsValidPassword(password); err != nil {
 			return err

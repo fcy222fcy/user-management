@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"user-management/internal/handler"
-	"user-management/internal/middleware"
 	"user-management/internal/repository"
 	"user-management/internal/service"
 	"user-management/pkg/database"
@@ -42,16 +41,13 @@ func main() {
 	staticFS := http.FileServer(http.Dir("web/static"))
 	mux.Handle("/static/", http.StripPrefix("/static/", staticFS))
 
-	// 中间件
-	handlerWithMiddleware := middleware.CORS(mux)
-
 	// 启动服务器
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8899"
 	}
 	log.Printf("系统已经准备好了,持续监听端口 %s ...", port)
-	log.Printf("访问地址: https://localhost:%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, handlerWithMiddleware))
+	log.Printf("访问地址: http://localhost:%s", port)
+	log.Fatal(http.ListenAndServe(":"+port, mux))
 	//log.Fatal(http.ListenAndServeTLS(":"+port, "D:\\server.crt", "D:\\server.key", handlerWithMiddleware))
 }
