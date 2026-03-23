@@ -3,6 +3,7 @@ package handler
 // 专门管理路由
 import (
 	"net/http"
+	"user-management/internal/middleware"
 	"user-management/internal/service"
 )
 
@@ -23,7 +24,6 @@ func RegisterUserRoutes(mux *http.ServeMux, h *UserHandler) {
 	// 页面
 	mux.HandleFunc("/", Index)
 	mux.HandleFunc("/login", h.LoginPage)
-	mux.HandleFunc("/profile", h.ProfilePage)
 	mux.HandleFunc("/userList", h.UserListPage)
 
 	// API
@@ -36,4 +36,32 @@ func RegisterUserRoutes(mux *http.ServeMux, h *UserHandler) {
 	mux.Handle("/api/user/create", Wrap(h.CreateUserHandler, h.UserService))
 	mux.Handle("/api/user/update", Wrap(h.UpdateUserHandler, h.UserService))
 	mux.Handle("/api/user/delete", Wrap(h.DeleteUserHandler, h.UserService))
+}
+
+// LoginPage 登录页
+func (h *UserHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "web/templates/login.html")
+}
+
+// RegisterPage 注册页
+func (h *UserHandler) RegisterPage(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "web/templates/register.html")
+}
+
+// UserListPage 用户列表页
+func (h *UserHandler) UserListPage(w http.ResponseWriter, r *http.Request) {
+	http.ServeFile(w, r, "web/templates/userList.html")
+}
+
+// Wrap 用于保护接口
+func Wrap(handler http.HandlerFunc, userService *service.UserService) http.Handler {
+	return middleware.AuthMiddleware(userService)(handler)
+}
+
+func Index(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, "web/templates/index.html")
 }

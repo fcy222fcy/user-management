@@ -3,9 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"user-management/internal/middleware"
 	"user-management/internal/model"
-	"user-management/internal/service"
 	"user-management/pkg/util"
 )
 
@@ -86,26 +84,6 @@ func (h *UserHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-// LoginPage 登录页
-func (h *UserHandler) LoginPage(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "web/templates/login.html")
-}
-
-// RegisterPage 注册页
-func (h *UserHandler) RegisterPage(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "web/templates/register.html")
-}
-
-// UserListPage 用户列表页
-func (h *UserHandler) UserListPage(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "web/templates/userList.html")
-}
-
-// ProfilePage 用户个人中心页
-func (h *UserHandler) ProfilePage(w http.ResponseWriter, r *http.Request) {
-	http.ServeFile(w, r, "web/templates/profile.html")
-}
-
 // ProfileHandler 用户个人中心处理
 func (h *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -127,17 +105,4 @@ func (h *UserHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	model.JsonResponse(w, http.StatusOK, "success", user)
 
-}
-
-// Wrap 用于保护接口
-func Wrap(handler http.HandlerFunc, userService *service.UserService) http.Handler {
-	return middleware.AuthMiddleware(userService)(handler)
-}
-
-func Index(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	http.ServeFile(w, r, "web/templates/index.html")
 }
